@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+# Node
+node_modules/
+.next/
+out/
+coverage/
+
+# Build artifacts
+*.log
+build/
+.dist/
+
+# Docker
+*.local
+
+# Database
+*.db
+*.sqlite3
+
+# Temporary
+tmp/

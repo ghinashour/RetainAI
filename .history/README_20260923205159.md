@@ -1,0 +1,147 @@
+# RetainAI
+
+RetainAI is a multi-tenant SaaS platform for retention intelligence. The current local build includes a working authentication flow, tenant-scoped workspace, customer watchlist, and operational actions view. See [report.md](report.md) for a simple implementation status report.
+
+## Implemented
+
+- Repository structure for backend, frontend, Docker, and docs
+- FastAPI backend foundation with versioned API routes
+- Centralized configuration using environment variables
+- Structured logging abstraction
+- Centralized exception handling
+- PostgreSQL + SQLAlchemy foundation
+- Alembic configuration scaffold
+- Docker Compose for PostgreSQL, backend, and frontend
+- Next.js app shell with professional SaaS layout
+- Basic API client abstraction
+- Health check endpoints
+- Testing foundation for backend
+- Registration and login with JWT access and refresh tokens
+- Shared in-memory user and organization repositories for local development
+- Tenant-aware authorization for protected workspace routes
+- Protected dashboard overview endpoint
+- Tenant-scoped customer watchlist endpoint and UI
+- Customer search by name, email, or segment
+- Customer status filtering for Critical, At risk, and Healthy accounts
+- Protected actions endpoint and operational playbook UI
+- Sign out and invalid-session handling
+- Backend and frontend build validation
+
+## Planned next
+
+- Data import and CSV validation
+- Customer canonical model
+- Health score and churn prediction
+- Recommendations and interventions
+- Outcome tracking
+- AI assistant
+- Advanced analytics
+- CRM integrations
+- Billing integration
+- Database-backed persistence and production migrations
+- Organization and role management
+
+## Project structure
+
+```text
+RetainAI/
+├── backend/
+│   ├── app/
+│   ├── requirements.txt
+│   ├── requirements-dev.txt
+│   └── alembic.ini
+├── frontend/
+│   ├── app/
+│   ├── components/
+│   ├── lib/
+│   ├── types/
+│   ├── public/
+│   ├── package.json
+│   └── tsconfig.json
+├── docker/
+│   ├── Dockerfile.backend
+│   ├── Dockerfile.frontend
+│   └── docker-compose.yml
+├── docs/
+│   ├── architecture.md
+│   ├── database.md
+│   ├── api.md
+│   ├── ml.md
+│   ├── security.md
+│   ├── deployment.md
+│   └── product.md
+├── scripts/
+│   └── bootstrap.ps1
+├── .env.example
+├── .gitignore
+├── README.md
+└── Architecture.txt
+```
+
+## Local development (Windows PowerShell)
+
+```powershell
+cd c:\Users\HP\Documents\PROJECTS\RetainAI
+Copy-Item .env.example .env
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r backend\requirements-dev.txt
+cd backend
+pytest app/tests -q
+cd ..
+cd frontend
+npm install
+npm run build
+cd ..
+```
+
+## Docker development
+
+```powershell
+cd c:\Users\HP\Documents\PROJECTS\RetainAI\docker
+docker compose up --build
+```
+
+## Environment variables
+
+See [.env.example](.env.example). Required values include:
+
+- DATABASE_URL
+- JWT_SECRET_KEY
+- JWT_ALGORITHM
+- ACCESS_TOKEN_EXPIRE_MINUTES
+- REFRESH_TOKEN_EXPIRE_DAYS
+- CORS_ORIGINS
+- APP_ENV
+- LOG_LEVEL
+
+## API endpoints
+
+Implemented in Phase 1:
+
+- GET /api/v1/health
+- GET /api/v1/health/db
+- POST /api/v1/auth/register
+- POST /api/v1/auth/login
+- POST /api/v1/auth/refresh
+- GET /api/v1/auth/me
+- GET /api/v1/dashboard/overview
+- GET /api/v1/customers
+- GET /api/v1/actions
+
+## Health checks
+
+- Backend health: http://localhost:8000/api/v1/health
+- Database health: http://localhost:8000/api/v1/health/db
+- Frontend root: http://localhost:3000
+
+## Development notes
+
+- Do not commit secrets.
+- Use the environment file for configuration.
+- Future authorization must derive the tenant from the authenticated user, never the frontend.
+- Future ML components must remain separate from the API layer.
+- The current customer and action data is representative local data, not database-backed production data.
+- The Docker and PostgreSQL foundation is present, but the local validated workflow currently uses shared in-memory repositories.
+- See [report.md](report.md) for completed functionality, a visual flow, and remaining work.
