@@ -1,0 +1,10 @@
+## to run the backend environment 
+cd C:\Users\HP\Documents\PROJECTS\RetainAI
+.\.venv\Scripts\Activate.ps1
+cd backend
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+##to run the frontend
+cd C:\Users\HP\Documents\PROJECTS\RetainAI\frontend
+npm run dev
+
