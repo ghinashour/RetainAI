@@ -7,38 +7,6 @@ from app.main import app
 client = TestClient(app)
 
 
-def mock_ai_analysis(monkeypatch) -> None:
-    def analyze(_self, _organization_name, customers, _metrics):
-        recommendations = [
-            {
-                "id": f"ai-recommendation-{customer['id']}",
-                "customer_id": customer["id"],
-                "customer_name": customer["name"],
-                "title": f"AI renewal review for {customer['name']}",
-                "priority": "High",
-                "reason": "Model-generated from the supplied portfolio data.",
-                "next_step": "Review the account context with its owner.",
-            }
-            for customer in customers
-        ]
-        return {
-            "available": True,
-            "status": "ready",
-            "message": None,
-            "headline": "AI portfolio analysis",
-            "risk_summary": "AI analysis based on imported portfolio data.",
-            "next_steps": [
-                "Review the model's highest-priority account.",
-                "Confirm the renewal timeline with the account owner.",
-            ],
-            "retention_assessment": {"score": 64, "confidence": "medium", "rationale": "Test model response."},
-            "top_risk_customers": [customer["name"] for customer in customers[:3]],
-            "recommendations": recommendations,
-        }
-
-    monkeypatch.setattr("app.services.ai_analysis_service.AIAnalysisService.analyze_portfolio", analyze)
-
-
 def test_customer_list_returns_only_imported_tenant_data() -> None:
     email = f"customers-{uuid.uuid4()}@example.com"
     register_response = client.post(
@@ -76,12 +44,10 @@ def test_action_list_requires_authenticated_tenant_context() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["organization_name"] == "Action Lab"
-    assert payload["status"] == "no_data"
-    assert payload["actions"][0]["priority"] == "Info"
+    assert payload["actions"][0]["priority"] in {"High", "Medium"}
 
 
-def test_action_list_uses_ai_recommendations_for_imported_customers(monkeypatch) -> None:
-    mock_ai_analysis(monkeypatch)
+def test_action_list_uses_customer_risk_signals() -> None:
     email = f"risk-actions-{uuid.uuid4()}@example.com"
     register_response = client.post(
         "/api/v1/auth/register",
@@ -107,10 +73,9 @@ def test_action_list_uses_ai_recommendations_for_imported_customers(monkeypatch)
     assert response.status_code == 200
     payload = response.json()
     assert payload["organization_name"] == "Intervention Lab"
-    assert payload["available"] is True
     titles = [item["title"] for item in payload["actions"]]
-    assert any("Mia" in title for title in titles)
-    assert any("Jane" in title for title in titles)
+    assert any("Mia" in title or "Critical" in title for title in titles)
+    assert any("Jane" in title or "At risk" in title for title in titles)
 
 
 def test_customer_import_creates_tenant_scoped_records() -> None:
@@ -205,8 +170,7 @@ def test_intervention_and_outcome_tracking_is_tenant_scoped() -> None:
     assert len(outcomes) >= 1
 
 
-def test_recommendations_and_analytics_are_tenant_scoped(monkeypatch) -> None:
-    mock_ai_analysis(monkeypatch)
+def test_recommendations_and_analytics_are_tenant_scoped() -> None:
     email = f"analytics-{uuid.uuid4()}@example.com"
     register_response = client.post(
         "/api/v1/auth/register",
@@ -255,9 +219,7 @@ def test_recommendations_and_analytics_are_tenant_scoped(monkeypatch) -> None:
 
     recommendations_response = client.get("/api/v1/recommendations", headers={"Authorization": f"Bearer {token}"})
     assert recommendations_response.status_code == 200
-    recommendation_payload = recommendations_response.json()
-    assert recommendation_payload["available"] is True
-    recommendations = recommendation_payload["recommendations"]
+    recommendations = recommendations_response.json()["recommendations"]
     assert len(recommendations) >= 1
     assert any("renewal" in item["title"].lower() or "expansion" in item["title"].lower() for item in recommendations)
 
@@ -269,8 +231,7 @@ def test_recommendations_and_analytics_are_tenant_scoped(monkeypatch) -> None:
     assert analytics["summary"]["positive_outcomes"] >= 1
 
 
-def test_assistant_briefing_uses_ai_analysis_of_live_retention_data(monkeypatch) -> None:
-    mock_ai_analysis(monkeypatch)
+def test_assistant_briefing_uses_live_retention_data() -> None:
     email = f"assistant-{uuid.uuid4()}@example.com"
     register_response = client.post(
         "/api/v1/auth/register",
@@ -294,7 +255,6 @@ def test_assistant_briefing_uses_ai_analysis_of_live_retention_data(monkeypatch)
     assert briefing_response.status_code == 200
     briefing = briefing_response.json()
     assert briefing["organization_name"] == "Northwind Retention"
-    assert briefing["available"] is True
     assert briefing["headline"]
     assert len(briefing["next_steps"]) >= 2
-    assert briefing["retention_assessment"]["score"] == 64
+    assert any("risk" in step.lower() or "renewal" in step.lower() or "expansion" in step.lower() for step in briefing["next_steps"])

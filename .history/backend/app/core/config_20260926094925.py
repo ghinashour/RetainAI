@@ -1,5 +1,4 @@
 from functools import lru_cache
-from pathlib import Path
 from typing import List
 
 from pydantic import Field, field_validator
@@ -23,7 +22,7 @@ class Settings(BaseSettings):
     ai_timeout_seconds: float = Field(default=45, alias="AI_TIMEOUT_SECONDS")
 
     model_config = SettingsConfigDict(
-        env_file=Path(__file__).resolve().parents[3] / ".env",
+        env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,

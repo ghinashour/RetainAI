@@ -49,15 +49,12 @@ type Action = {
   id: string;
   title: string;
   priority: string;
-  reason: string;
-  next_step: string;
+  due_in: string;
+  owner: string;
 };
 
 type ActionResponse = {
   organization_name: string;
-  available: boolean;
-  status: string;
-  message: string | null;
   actions: Action[];
 };
 
@@ -70,22 +67,15 @@ type AnalyticsSummary = {
   currency: string;
   positive_outcomes: number;
   scheduled_interventions: number;
+  retention_score: number;
 };
 
 type BriefingResponse = {
   organization_name: string;
-  available: boolean;
-  status: string;
-  message: string | null;
-  headline: string | null;
-  risk_summary: string | null;
+  headline: string;
+  risk_summary: string;
   next_steps: string[];
   top_risk_customers: string[];
-  retention_assessment: {
-    score: number | null;
-    confidence: string;
-    rationale: string;
-  } | null;
   summary: AnalyticsSummary;
 };
 
@@ -99,11 +89,6 @@ export function AppShell() {
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [actions, setActions] = useState<Action[]>([]);
-  const [actionAnalysis, setActionAnalysis] = useState<{ available: boolean; status: string; message: string | null }>({
-    available: false,
-    status: 'loading',
-    message: null,
-  });
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
   const [briefing, setBriefing] = useState<BriefingResponse | null>(null);
   const [selectedView, setSelectedView] = useState<View>('Overview');
@@ -188,7 +173,6 @@ export function AppShell() {
       if (actionsResponse.ok) {
         const payload: ActionResponse = await actionsResponse.json();
         setActions(payload.actions ?? []);
-        setActionAnalysis({ available: payload.available, status: payload.status, message: payload.message });
       }
       if (analyticsResponse.ok) {
         const payload = await analyticsResponse.json();
@@ -201,7 +185,6 @@ export function AppShell() {
       setDashboard(null);
       setCustomers([]);
       setActions([]);
-      setActionAnalysis({ available: false, status: 'error', message: 'Workspace data could not be loaded.' });
       setAnalytics(null);
       setBriefing(null);
     });
@@ -243,7 +226,6 @@ export function AppShell() {
     setDashboard(null);
     setCustomers([]);
     setActions([]);
-    setActionAnalysis({ available: false, status: 'loading', message: null });
     setAnalytics(null);
     setBriefing(null);
     setSelectedView('Overview');
@@ -331,7 +313,6 @@ export function AppShell() {
           dashboard={dashboard}
           customers={customers}
           actions={actions}
-          actionAnalysis={actionAnalysis}
           analytics={analytics}
           briefing={briefing}
           selectedView={selectedView}
@@ -357,7 +338,6 @@ function AuthenticatedWorkspace({
   dashboard,
   customers,
   actions,
-  actionAnalysis,
   analytics,
   briefing,
   selectedView,
@@ -373,7 +353,6 @@ function AuthenticatedWorkspace({
   dashboard: DashboardResponse | null;
   customers: Customer[];
   actions: Action[];
-  actionAnalysis: { available: boolean; status: string; message: string | null };
   analytics: AnalyticsSummary | null;
   briefing: BriefingResponse | null;
   selectedView: View;
@@ -497,21 +476,15 @@ function AuthenticatedWorkspace({
         </div>
 
         <div style={{ display: 'grid', gap: 12 }}>
-          {actionAnalysis.status === 'not_configured' && (
-            <p style={{ marginTop: 0, color: '#7a4b00' }}>{actionAnalysis.message}</p>
-          )}
-          {visibleActions.length > 0 ? visibleActions.map((action) => (
+          {visibleActions.map((action) => (
             <div key={action.id} style={{ padding: '16px 18px', border: '1px solid #dfe7f1', borderRadius: 14, background: '#f8fbff', display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontWeight: 700, color: '#14213d' }}>{action.title}</div>
-                <div style={{ color: '#5a6781', marginTop: 5 }}>{action.reason}</div>
-                <div style={{ color: '#5a6781', marginTop: 5 }}>Next step: {action.next_step}</div>
+                <div style={{ color: '#5a6781', marginTop: 5 }}>Owner: {action.owner} · Due: {action.due_in}</div>
               </div>
-              <span style={{ color: action.priority === 'High' ? '#b42318' : action.priority === 'Info' ? '#5a6781' : '#c77700', fontWeight: 700 }}>{action.priority}</span>
+              <span style={{ color: action.priority === 'High' ? '#b42318' : '#c77700', fontWeight: 700 }}>{action.priority}</span>
             </div>
-          )) : actionAnalysis.status !== 'not_configured' && (
-            <p style={{ color: '#5a6781' }}>{actionAnalysis.message ?? 'No AI-generated actions are available.'}</p>
-          )}
+          ))}
         </div>
       </section>
     );
@@ -554,6 +527,7 @@ function AuthenticatedWorkspace({
       currency: 'USD',
       positive_outcomes: 0,
       scheduled_interventions: 0,
+      retention_score: 0,
     };
 
     return (
@@ -565,12 +539,7 @@ function AuthenticatedWorkspace({
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 18 }}>
           {[
-            {
-              label: 'AI retention assessment',
-              value: briefing?.available && briefing.retention_assessment?.score !== null
-                ? `${briefing.retention_assessment?.score}/100`
-                : 'Unavailable',
-            },
+            { label: 'Retention score', value: `${summary.retention_score}/100` },
             { label: 'Positive outcomes', value: summary.positive_outcomes.toString() },
             { label: 'Scheduled interventions', value: summary.scheduled_interventions.toString() },
             { label: 'At-risk accounts', value: summary.at_risk_customers.toString() },
@@ -585,31 +554,29 @@ function AuthenticatedWorkspace({
         <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 18 }}>
           <div style={{ padding: 18, background: '#f8fbff', border: '1px solid #dfe7f1', borderRadius: 14 }}>
             <div style={{ fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase', color: '#5a6781', fontWeight: 700 }}>Portfolio briefing</div>
-            <p style={{ margin: '12px 0 0', color: '#14213d', lineHeight: 1.6, fontSize: 16 }}>
-              {briefing?.available ? briefing.risk_summary : briefing?.message ?? 'AI analysis is unavailable.'}
-            </p>
+            <p style={{ margin: '12px 0 0', color: '#14213d', lineHeight: 1.6, fontSize: 16 }}>{briefing?.risk_summary ?? 'No briefing data yet.'}</p>
             <div style={{ marginTop: 18, display: 'grid', gap: 8 }}>
-              {briefing?.available && briefing.next_steps.length ? (
+              {briefing?.next_steps?.length ? (
                 briefing.next_steps.map((step, index) => (
                   <div key={`${step}-${index}`} style={{ padding: '10px 12px', borderRadius: 10, background: '#ffffff', border: '1px solid #dfe7f1' }}>{step}</div>
                 ))
-              ) : briefing?.available && <div style={{ color: '#5a6781' }}>The provider did not return next steps.</div>}
+              ) : (
+                <div style={{ padding: '10px 12px', borderRadius: 10, background: '#ffffff', border: '1px solid #dfe7f1' }}>Review at-risk accounts and prioritize renewal recovery actions.</div>
+              )}
             </div>
           </div>
 
           <div style={{ padding: 18, background: '#f8fbff', border: '1px solid #dfe7f1', borderRadius: 14 }}>
             <div style={{ fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase', color: '#5a6781', fontWeight: 700 }}>Top risk customers</div>
             <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-              {briefing?.available && briefing.top_risk_customers.length ? (
+              {briefing?.top_risk_customers?.length ? (
                 briefing.top_risk_customers.map((customer) => (
                   <div key={customer} style={{ padding: '10px 12px', borderRadius: 10, background: '#ffffff', border: '1px solid #dfe7f1', color: '#14213d', fontWeight: 600 }}>
                     {customer}
                   </div>
                 ))
-              ) : briefing?.available ? (
-                <div style={{ padding: '10px 12px', borderRadius: 10, background: '#ffffff', border: '1px solid #dfe7f1', color: '#5a6781' }}>The provider returned no top-risk accounts.</div>
               ) : (
-                <div style={{ padding: '10px 12px', borderRadius: 10, background: '#ffffff', border: '1px solid #dfe7f1', color: '#5a6781' }}>{briefing?.message ?? 'AI analysis is unavailable.'}</div>
+                <div style={{ padding: '10px 12px', borderRadius: 10, background: '#ffffff', border: '1px solid #dfe7f1', color: '#5a6781' }}>No critical accounts detected.</div>
               )}
             </div>
           </div>

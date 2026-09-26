@@ -14,6 +14,22 @@ class CustomerService:
         self.repository = CustomerRepository()
 
     @staticmethod
+    def _infer_status(health_score: int) -> str:
+        if health_score < 35:
+            return "Critical"
+        if health_score < 60:
+            return "At risk"
+        return "Healthy"
+
+    @staticmethod
+    def _infer_risk(status: str) -> str:
+        if status == "Critical":
+            return "High"
+        if status == "At risk":
+            return "Medium"
+        return "Low"
+
+    @staticmethod
     def _parse_row(row: dict[str, Any]) -> dict[str, Any]:
         normalized = {str(key).strip().lower(): str(value).strip() for key, value in row.items() if key is not None}
         name = normalized.get("name") or normalized.get("customer_name")
@@ -28,12 +44,7 @@ class CustomerService:
             raise ValidationError(f"Invalid health_score for {name}: {health_score_raw}") from exc
         health_score = max(0, min(100, health_score))
 
-        status_value = normalized.get("status", "").lower()
-        status = {
-            "critical": "Critical",
-            "at risk": "At risk",
-            "healthy": "Healthy",
-        }.get(status_value, normalized.get("status") or "Unclassified")
+        status = normalized.get("status") or CustomerService._infer_status(health_score)
         monthly_revenue_raw = normalized.get("monthly_revenue", "0")
         try:
             monthly_revenue = float(monthly_revenue_raw)
@@ -47,7 +58,7 @@ class CustomerService:
             "company": normalized.get("company") or normalized.get("account") or "Unknown",
             "status": status,
             "health_score": health_score,
-            "risk_level": normalized.get("risk_level") or "Unknown",
+            "risk_level": normalized.get("risk_level") or CustomerService._infer_risk(status),
             "monthly_revenue": monthly_revenue,
             "segment": normalized.get("segment") or "Unknown",
             "last_interaction": normalized.get("last_interaction") or "N/A",
